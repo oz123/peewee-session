@@ -16,8 +16,8 @@ Install using either pip:
 Requirements
 ------------
 
- peewee >= 3.1
- passlib
+ - peewee >= 3.1
+ - passlib
 
 
 Using peewee-session
