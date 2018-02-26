@@ -1,0 +1,3 @@
+bottle
+passlib
+peewee>=3.1

@@ -1,0 +1,13 @@
+*~
+.*.swp
+*.py[co]
+*.egg
+*.eggs/
+*.egg-info
+MANIFEST
+dist/
+build/
+.DS_Store
+.cache
+AUTHORS
+ChangeLog
