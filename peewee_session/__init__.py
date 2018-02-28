@@ -9,6 +9,7 @@ import hashlib
 import hmac
 import inspect
 import json
+import re
 import time
 import uuid
 
@@ -29,7 +30,9 @@ DELETE FROM {} WHERE DATETIME(timestamp) <= DATETIME('now', '-{} {}');
 END;
 """
 
-MAX_TTL = 7*24*3600  # 7 day maximum cookie limit for sessions
+
+class SessionError(Exception):
+    pass
 
 
 def getUuid():
@@ -49,7 +52,7 @@ class PeeweeSessionPlugin:
 
     def __init__(self, db_conn=None, cookie_secret=None,
                  cookie_name='peewee.session',
-                 cookie_lifetime=300, keyword='session'):
+                 cookie_lifetime='7 days', keyword='session'):
         """Session plugin for the bottle framework.
 
         Args:
@@ -94,12 +97,17 @@ class PeeweeSessionPlugin:
         if not self.cookie_secret:
             self.cookie_secret = app.config.get('cookie-secret')
 
+        if not re.match('\d+ (%s)' % "|".join(UNITS), self.cookie_lifetime):
+            raise PluginError('cookie_lifetime misconfigured')
+        ttl, ttl_unit = self.cookie_lifetime.split(' ')
+
         session_model = model_factory(self.db_conn,
                                       app.config.get('session-table',
                                                      'sessions'))
         self.session_manager = SessionManager(self.db_conn,
                                               session_model,
-                                              self.cookie_secret
+                                              self.cookie_secret,
+                                              ttl=int(ttl), ttl_unit=ttl_unit
                                               )
 
     def apply(self, callback, context):
@@ -194,7 +202,7 @@ class BaseSessionManager:
             raise ValueError("Illegal ttl_unit.")
         if ttl:
             sessions_table = model._meta.table_name
-            self.db_conn.execute_sql(
+            self.model.raw(
                 TRIGGER_SQL.format(
                     sessions_table, sessions_table, ttl, ttl_unit)).execute()
 
@@ -207,7 +215,10 @@ class BaseSessionManager:
         query.execute()
 
     def __getitem__(self, id):
-        data = self.model.select().where(self.model.id == id).get().data
+        try:
+            data = self.model.select().where(self.model.id == id).get().data
+        except self.model.DoesNotExist:
+            raise SessionError("Item not found %s" % id)
         data = json.loads(data)
         return data
 
@@ -259,7 +270,7 @@ class SessionManager(BaseSessionManager):
     def load(self, id):
         try:
             return self.__getitem__(id)
-        except self.model.DoesNotExist:
+        except SessionError:
             pass
 
     def save(self, id, data):

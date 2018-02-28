@@ -20,18 +20,18 @@ app = bottle.app()
 app.config.update(CONFIG)
 
 session_plugin = PeeweeSessionPlugin(
+    cookie_lifetime='10 seconds',
     db_conn=db, cookie_secret='very-s3kr3t-s4lt')
 
 app.install(session_plugin)
 
+csrf = ''.join(random.choice(
+            string.ascii_uppercase+string.ascii_lowercase+string.digits)
+            for x in range(32))
+
 
 @app.route('/')
 def get_main_page(session):
-    csrf = ''.join(random.choice(
-        string.ascii_uppercase+string.ascii_lowercase+string.digits)
-        for x in range(32))
-
-    session['csrf'] = csrf
 
     if session.load('name') is None:
         context = {'csrf_token': csrf}
@@ -40,18 +40,50 @@ def get_main_page(session):
 
     else:
         context = {'csrf_token': csrf,
-                   'name': session.load('name')
+                   'name': session.load('name'),
+                   'trigger': session.load('trigger')
                    }
 
         return bottle.template('has_name', **context)
 
 
+@app.route('/trigger')
+def get_trigger_page(session):
+
+    session['csrf'] = csrf
+
+    if session.load('trigger') is None:
+        context = {'csrf_token': csrf}
+
+        return bottle.template('set_trigger', **context)
+
+    else:
+        context = {'csrf_token': csrf,
+                   'name': session.load('name'),
+                   'trigger': session.load('trigger')
+                   }
+
+        return bottle.template('has_name', **context)
+
+
+@app.route('/submit-trigger', method='POST')
+def set_trigger(session):
+    session['trigger'] = bottle.request.forms.trigger.strip()
+    csrf_submitted = bottle.request.forms.get('csrf_token')
+
+    if csrf_submitted != csrf:
+        return bottle.template('error',
+                               warning_message='Cross-site scripting error.')
+
+    bottle.redirect('/trigger')
+
+
 @app.route('/submit', method='POST')
 def set_name(session):
     session['name'] = bottle.request.forms.name.strip()
-    csrf = bottle.request.forms.get('csrf_token')
+    csrf_submitted = bottle.request.forms.get('csrf_token')
 
-    if session['csrf'] != csrf:
+    if csrf_submitted != csrf:
         return bottle.template('error',
                                warning_message='Cross-site scripting error.')
 

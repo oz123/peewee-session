@@ -5,11 +5,11 @@
     <meta http-equiv="X-UA-Compatible" content="IE=edge">
     <meta name="viewport" content="width=device-width, initial-scale=1">
 
-    <title>Session Test</title>
+    <title>Session Test Trigger</title>
 
   </head>
   <body>
-    <h1>Session Test</h1>
+    <h1>Session Trigger</h1>
 
     <p>Name is {{ name }}.</p>
     <p>Trigger is {{ trigger }}.</p>
