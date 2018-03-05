@@ -6,8 +6,11 @@ Christopher De Vries (https://github.com/devries/bottle-session).
 import bottle
 import random
 import string
+import time
 
+from bottle import request, response
 from peewee_session import PeeweeSessionPlugin
+from util import make_login_required_decorator, auth_basic, authenticator
 
 from peewee import SqliteDatabase
 
@@ -28,6 +31,36 @@ app.install(session_plugin)
 csrf = ''.join(random.choice(
             string.ascii_uppercase+string.ascii_lowercase+string.digits)
             for x in range(32))
+
+
+class User:
+    @staticmethod
+    def verify_password(user, password):
+        return True
+
+
+login_required = authenticator(session_plugin.session_manager,
+                               validate_user=User.verify_password,
+                               login_url='/login/')
+
+
+@app.route('/login/')
+@auth_basic(User.verify_password)
+def protected_view(session):
+    session[request.auth[0]] = 'logged_in'
+    dest_route = request.get_cookie('login_redirect')
+    dest_route = dest_route.strip('/')
+
+    response.set_cookie('yar!token', 'very-secret', secret=session.secret,
+                        path='/',
+                        expires=(int(time.time()) + 3600))
+    bottle.redirect(bottle.request.get_cookie('login_redirect', '/'))
+
+
+@app.route('/secure/')
+@login_required()
+def secure():
+    return "OK"
 
 
 @app.route('/')
