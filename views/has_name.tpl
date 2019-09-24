@@ -12,7 +12,6 @@
     <h1>Session Test</h1>
 
     <p>Name is {{ name }}.</p>
-    <p>Trigger is {{ trigger }}.</p>
     <p><a href="/logout">Forget name</a></p>
   </body>
 </html>

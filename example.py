@@ -8,9 +8,9 @@ import random
 import string
 import time
 
-from bottle import request, response
+from bottle import request, response, HTTPResponse, template
 from peewee_session import PeeweeSessionPlugin
-from util import make_login_required_decorator, auth_basic, authenticator
+from util import authenticator, generate_token
 
 from peewee import SqliteDatabase
 
@@ -28,97 +28,56 @@ session_plugin = PeeweeSessionPlugin(
 
 app.install(session_plugin)
 
-csrf = ''.join(random.choice(
-            string.ascii_uppercase+string.ascii_lowercase+string.digits)
-            for x in range(32))
+csrf_token = generate_token(20)
+
+username = "Mellanie"
+PASSWORD = "StickyNotesOnTheBackofYourScreenAren'tSafe"
 
 
 class User:
     @staticmethod
     def verify_password(user, password):
-        return True
+        if user == username and password == PASSWORD:
+            return True
+        else:
+            return False
 
 
 login_required = authenticator(session_plugin.session_manager,
-                               validate_user=User.verify_password,
-                               login_url='/login/')
-
-
-@app.route('/login/')
-@auth_basic(User.verify_password)
-def protected_view(session):
-    session[request.auth[0]] = 'logged_in'
-    dest_route = request.get_cookie('login_redirect')
-    dest_route = dest_route.strip('/')
-
-    response.set_cookie('yar!token', 'very-secret', secret=session.secret,
-                        path='/',
-                        expires=(int(time.time()) + 3600))
-    bottle.redirect(bottle.request.get_cookie('login_redirect', '/'))
-
-
-@app.route('/secure/')
-@login_required()
-def secure():
-    return "OK"
+                               csrf_token,
+                               User.verify_password, app,
+                               '/login',
+                               redirect_success="/",
+                               session_cookie='coldswaet-cookie'
+                               )
 
 
 @app.route('/')
+@login_required()
 def get_main_page(session):
 
     if session.load('name') is None:
-        context = {'csrf_token': csrf}
+        context = {'csrf_token': csrf_token}
 
         return bottle.template('set_name', **context)
 
     else:
-        context = {'csrf_token': csrf,
+        context = {'csrf_token': csrf_token,
                    'name': session.load('name'),
                    'trigger': session.load('trigger')
                    }
 
         return bottle.template('has_name', **context)
-
-
-@app.route('/trigger')
-def get_trigger_page(session):
-
-    session['csrf'] = csrf
-
-    if session.load('trigger') is None:
-        context = {'csrf_token': csrf}
-
-        return bottle.template('set_trigger', **context)
-
-    else:
-        context = {'csrf_token': csrf,
-                   'name': session.load('name'),
-                   'trigger': session.load('trigger')
-                   }
-
-        return bottle.template('has_name', **context)
-
-
-@app.route('/submit-trigger', method='POST')
-def set_trigger(session):
-    session['trigger'] = bottle.request.forms.trigger.strip()
-    csrf_submitted = bottle.request.forms.get('csrf_token')
-
-    if csrf_submitted != csrf:
-        return bottle.template('error',
-                               warning_message='Cross-site scripting error.')
-
-    bottle.redirect('/trigger')
 
 
 @app.route('/submit', method='POST')
 def set_name(session):
-    session['name'] = bottle.request.forms.name.strip()
-    csrf_submitted = bottle.request.forms.get('csrf_token')
+    session['name'] = request.forms.name.strip()
+    csrf_submitted = request.forms.get('csrf_token')
 
-    if csrf_submitted != csrf:
-        return bottle.template('error',
-                               warning_message='Cross-site scripting error.')
+    if csrf_submitted != csrf_token:
+        return template('error',
+                        warning_message='Cross-site scripting error.')
 
     bottle.redirect('/')
 
@@ -126,7 +85,13 @@ def set_name(session):
 @app.route('/logout')
 def logout(session):
     del session['name']
-    bottle.redirect('/')
+    response = HTTPResponse(
+                body="Bye!",
+                status=200,
+                )
+    response.delete_cookie('login_redirect',
+                        path='/',)
+    return response
 
 
 if __name__ == '__main__':
