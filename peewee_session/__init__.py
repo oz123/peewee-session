@@ -111,10 +111,7 @@ class PeeweeSessionPlugin:
                                               )
 
     def apply(self, callback, context):
-        try:
-            args = inspect.signature(context.callback).parameters
-        except AttributeError:
-            args = inspect.getargspec(context.callback)[0]
+        args = inspect.getfullargspec(callback)[0]
 
         if self.keyword not in args:
             return callback
@@ -157,13 +154,13 @@ def open_close_db(fn):
     return wrapper
 
 
-def model_factory(db_conn, table_name='sessions'):
+def model_factory(db_conn, table='sessions'):
 
     class SessionStore(peewee.Model):
 
         class Meta:
             database = db_conn
-            db_table = table_name
+            table_name = table
 
         id = peewee.CharField(unique=True)
         timestamp = peewee.DateTimeField(default=datetime.datetime.utcnow)
@@ -272,6 +269,9 @@ class SessionManager(BaseSessionManager):
             return self.__getitem__(id)
         except SessionError:
             pass
+
+    def get(self, key, default=None):
+        return self.load(key) or default
 
     def save(self, id, data):
         self.__setitem__(id, data)

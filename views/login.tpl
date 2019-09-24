@@ -9,10 +9,10 @@
 
   </head>
   <body>
-    <h1>Session Trigger</h1>
-
-    <p>Name is {{ name }}.</p>
-    <p>Trigger is {{ trigger }}.</p>
-    <p><a href="/logout">Forget name</a></p>
-  </body>
+<form action="/login" method="post">
+    username: <input name="username" type="text" />
+    password: <input name="password" type="password" />
+    <input value="Login" type="submit" />
+</form>
+</body>
 </html>
