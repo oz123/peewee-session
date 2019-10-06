@@ -97,7 +97,7 @@ class PeeweeSessionPlugin:
         if not self.cookie_secret:
             self.cookie_secret = app.config.get('cookie-secret')
 
-        if not re.match('\d+ (%s)' % "|".join(UNITS), self.cookie_lifetime):
+        if not re.match('\\d+ (%s)' % "|".join(UNITS), self.cookie_lifetime):
             raise PluginError('cookie_lifetime misconfigured')
         ttl, ttl_unit = self.cookie_lifetime.split(' ')
 
